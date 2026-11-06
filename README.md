@@ -7,7 +7,7 @@
 
 > Um jogo em **Python e Pygame** que transforma o planejamento de deslocamento seguro em um problema de grafos, matrizes, lógica proposicional e otimização. **Não usa Portugol**.
 
-![Visualização ilustrativa baseada em uma matriz real gerada pelo projeto](assets/mapa_demonstracao.png)
+**Visualização do mapa e comparação das rotas:** disponíveis no pacote ZIP completo, na pasta `assets/`.
 
 ## Problema do mundo real
 
@@ -85,10 +85,15 @@ Cada fase começa com 4 vidas. Dica de rota custa 5 pontos, no máximo uma vez p
 | [`src/logica.py`](src/logica.py) | Matriz, geração DFS, BFS, A* temporal, regras, validações e pontuação |
 | [`tests/test_logica.py`](tests/test_logica.py) | Testes determinísticos, situações de risco e 500 mapas com sementes |
 | [`docs/GUIA_LINHA_A_LINHA.md`](docs/GUIA_LINHA_A_LINHA.md) | Explicação numerada de cada linha de código Python |
-| [`docs/RELATORIO_PROJETO.docx`](docs/RELATORIO_PROJETO.docx) | Documento descritivo acadêmico |
-| [`slides/APRESENTACAO_PROJETO.pptx`](slides/APRESENTACAO_PROJETO.pptx) | Apresentação para defesa de 10 a 15 minutos |
+| `docs/RELATORIO_PROJETO.docx` (no ZIP completo) | Documento descritivo acadêmico em Word |
+| `slides/APRESENTACAO_PROJETO.pptx` (no ZIP completo) | Apresentação PowerPoint para defesa de 10 a 15 minutos |
 
 O código Python contém comentários **linha a linha** nas instruções significativas. O guia complementar apresenta **cada linha numerada**, inclusive importações, decoradores, controles e chamadas gráficas.
+
+
+### Materiais finais (pacote ZIP)
+
+O **pacote completo do projeto**, distribuído junto à entrega acadêmica, contém o código-fonte, as imagens, o relatório editável (`.docx`), o relatório em PDF e os slides (`.pptx`). **Os arquivos binários de Word/PowerPoint/PDF não estão presentes nesta branch GitHub**; eles são fornecidos no ZIP de entrega para download. Os arquivos `.md` do repositório contêm as explicações matemáticas e a documentação linha por linha.
 
 ## Testes e verificação
 
