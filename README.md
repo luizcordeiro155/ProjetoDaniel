@@ -1,131 +1,103 @@
 # Labirinto dos Enigmas: Rotas de Risco
 
-**Trabalho A03 — Matemática Computacional Aplicada / Lógica e Algoritmos**  
+**Trabalho A03 - Matemática Computacional Aplicada**  
 **Professor:** Daniel Henrique Matos de Paiva  
-**Estudante:** Luiz Henrique Cordeiro dos Santos — **RA:** 326122345  
-**Equipe:** preencher os nomes e RAs dos demais integrantes antes da entrega (enunciado: 3 a 5 alunos).
+**Integrantes do grupo:**
 
-> Um jogo em **Python e Pygame** que transforma o planejamento de deslocamento seguro em um problema de grafos, matrizes, lógica proposicional e otimização. **Não usa Portugol**.
+- **Lucas Gabriel Dias Costa** — RA **326124418**
+- **João Guilherme Machado Ferreira** — RA **326128074**
+- **Luiz Henrique Cordeiro dos Santos** — RA **326122345**
 
-**Visualização do mapa e comparação das rotas:** disponíveis no pacote ZIP completo, na pasta `assets/`.
+Projeto acadêmico desenvolvido em **Python com Pygame**. O objetivo é atravessar um labirinto, coletar uma chave, resolver um desafio matemático e chegar a saída, evitando espinhos, entulhos e lasers.
 
 ## Problema do mundo real
 
-Em galpões, oficinas e áreas de manutenção, deslocar-se do ponto de entrada até um destino exige considerar **obstruções**, **materiais cortantes**, **máquinas com funcionamento cíclico** e **restrições de acesso**. A rota mais curta nem sempre tem o menor risco. O jogo simula esse problema de forma **didática**: entulhos são bloqueios, espinhos representam objetos perfurantes, lasers representam risco temporal de máquina, chave/enigma simulam duas condições de autorização. O simulador **não é sistema certificado para segurança ou evacuação real**.
+Em locais como oficinas e galpões, o caminho mais curto nem sempre é o mais seguro: podem existir obstáculos, materiais cortantes ou máquinas que ligam e desligam. O jogo apresenta uma simulação simplificada desse problema e permite comparar **distância** e **risco** ao escolher uma rota. Não é um aplicativo real de segurança industrial.
 
-## Instalação e execução (Windows, Linux ou macOS)
+## Como instalar e jogar
 
-Requer **Python 3.11+**. Abra o terminal na pasta do repositório:
+Instale o **Python 3.13** e abra o terminal na pasta onde está `jogo.py`.
 
-```bash
+```powershell
 python -m pip install -r requirements.txt
 python jogo.py
 ```
 
-Se seu Windows usa `py` em vez de `python`, execute `py -m pip install -r requirements.txt` e `py jogo.py`.
+Se houver várias versões do Python instaladas no Windows, selecione o Python 3.13 no VS Code ou execute o jogo com o caminho completo desse interpretador.
 
-### Controles
+| Tecla | Função |
+| --- | --- |
+| Setas / WASD | Movimentar o personagem |
+| Espaço | Esperar um turno para o laser mudar de estado |
+| H | Mostrar rota A* (menos risco) |
+| J | Mostrar rota BFS (menos passos) |
+| M | Mostrar informações da fórmula A* |
+| I | Mostrar dica do enigma |
+| Enter | Começar, responder ou avançar |
+| R | Reiniciar o jogo |
+| Esc | Sair |
 
-| Comando | Ação |
-|---|---|
-| **Setas / WASD** | Mover uma célula por turno |
-| **Espaço** | Esperar um turno (útil para evitar laser ativo) |
-| **H** | A* temporal: rota de custo ponderado mínimo |
-| **J** | BFS: rota mais curta em número de passos |
-| **M** | Mostrar fórmula heurística no painel |
-| **I** | Exibir dica quando o enigma estiver aberto |
-| **Enter** | Iniciar, confirmar resposta ou avançar |
-| **Backspace** | Apagar um dígito da resposta |
-| **R** | Reiniciar (fora do enigma) |
-| **Esc** | Sair |
+## Como o jogo funciona
 
-Os botões do painel permitem selecionar BFS e A* com mouse.
+O mapa é criado automaticamente e possui três fases. O jogador começa com **4 vidas por fase**.
 
-## Elementos do mapa
+- **Espinho (^):** causa 1 vida e retira 20 pontos da pontuação.
+- **Laser (~):** causa o mesmo dano quando está ligado; quando desligado pode ser atravessado.
+- **Entulho (R) e parede (#):** impedem o movimento.
+- **Chave (K):** vale 40 pontos.
+- **Enigma (E):** vale 80 pontos quando respondido corretamente.
+- **Porta (D):** abre apenas com a chave e o enigma resolvido.
+- **Saída (S):** vale 120 pontos e conclui a fase.
 
-| Célula | Significado | Regra |
-|---|---|---|
-| `#` | Parede | Não transitável |
-| `.` | Piso | Transitável |
-| `R` | Entulho | Não transitável |
-| `^` | Espinhos | Ao entrar, perde 1 vida e 20 pontos; pisca em vermelho e recua para casa vizinha segura |
-| `~` | Laser | Quando ativo (`turno % 4 ∈ {0, 1}`), aplica o mesmo dano e recuo; desligado pode ser atravessado |
-| `K` | Chave/credencial | +40 pontos |
-| `E` | Enigma | +80 pontos se correta |
-| `D` | Porta | Abre somente com chave **E** enigma resolvido |
-| `S` | Saída | +120 pontos e avança fase |
+Ao tocar em um espinho ou laser ativo, o personagem **pisca em vermelho por 850 ms e recua automaticamente para uma casa segura**. A casa anterior tem prioridade, mas o programa verifica se ela não possui perigos. A geração dos mapas evita perigos sem pelo menos uma casa segura ao lado.
 
-Cada fase começa com 4 vidas. Dica de rota custa 5 pontos, no máximo uma vez por fase. O desafio possui 3 fases progressivas e pontuação máxima sem penalidades de **720 pontos** (240 por fase).
+## Relação com Matemática Computacional
 
-### Nova mecânica: dano, recuo e piscada vermelha
+| Conceito | Aplicação no jogo |
+| --- | --- |
+| **Matrizes** | O labirinto é uma matriz de 15 linhas por 23 colunas. |
+| **Grafos** | As casas são vértices e os deslocamentos são arestas. |
+| **DFS (profundidade)** | Gera os corredores do labirinto usando pilha e retrocesso. |
+| **BFS (largura)** | Encontra o trajeto com menos passos. |
+| **A*** | Busca um trajeto de menor custo, considerando distância e perigo. |
+| **Lógica booleana** | A porta abre apenas quando `tem_chave AND enigma_resolvido`. |
+| **Aritmética modular** | O laser liga e desliga de acordo com `turno % 4`. |
+| **Conjuntos** | O sistema verifica casas acessiveis e locais seguros. |
 
-Ao **entrar em espinhos** ou entrar/esperar em um **laser ativo**, o personagem perde **1 vida e 20 pontos** e é deslocado **imediatamente para uma casa ortogonal vizinha segura**. O algoritmo prioriza a **casa anterior**, desde que não seja um perigo; se o jogador estava parado sobre um laser que ligou, escolhe outro refúgio lateral (prefere piso livre). O personagem pisca entre azul e **vermelho por 850 ms**, com um curto bloqueio dos movimentos durante a animação para impedir que uma tecla segurada provoque vários danos em sequência. O cronômetro visual não altera os turnos discretos do laser.
+O custo usado no A* é calculado por:
 
-Na **geração do labirinto**, cada espinho e laser deve possuir **ao menos um vizinho transitável sem perigos**, mesmo que os lasers estejam desligados. Se um novo obstáculo deixaria um perigo cercado, sua instalação é desfeita. Isso evita recuo para outra armadilha. Existe ainda uma busca BFS defensiva para localizar uma casa segura mais distante em mapas modificados manualmente que violem a garantia de vizinhança.
+`custo = 1 + 18 * risco`
 
-**Regra matemática de adjacência segura:** dado o local do impacto `p=(r,c)`, o conjunto de refúgios `Nₛ(p)` reúne células transitáveis `q` tais que `|qᵣ-r| + |q꜀-c| = 1` e `A[q] ∉ {^,~}`. Nos mapas gerados, `Nₛ(p) ≠ ∅` para todo perigo. Esta regra é separada do cálculo de custo do A*: as rotas planejadas ainda são estimativas com penalidade de risco, não uma simulação de todos os recuos.
+O valor `risco` é 1 se a casa for perigosa no turno da chegada, ou 0 caso contrário. A heurística usa a **distância Manhattan**:
 
-## Matemática Computacional aplicada
+`h = abs(linha_atual - linha_final) + abs(coluna_atual - coluna_final)`
 
-**1. Matrizes:** o mapa é uma matriz `15 × 23` (`A ∈ Σ^(15×23)`); cada célula é indexada por `(linha, coluna)`.
+**Exemplo:** um caminho de 3 passos com um perigo custa `3 + 18 = 21`. Um caminho de 5 passos sem perigo custa `5`. Por isso, o caminho de menor risco pode ser mais longo que o caminho escolhido pelo BFS.
 
-**2. Teoria dos grafos:** todo corredor é um vértice `v ∈ V`; movimentos ortogonais são arestas `E`. `G=(V,E)`, com até quatro vizinhos por vértice, e uma aresta de esperar no grafo temporal.
+## Arquivos do projeto
 
-**3. Busca em profundidade (DFS):** uma pilha LIFO gera os corredores com retrocesso. A árvore de corredores resultante é conectada; a porta é colocada num ponto articulador antes das aberturas extras. Algumas paredes são removidas sem criar passagem que contorne a porta.
-
-**4. Busca em largura (BFS):** uma fila FIFO percorre vértices por níveis e fornece um caminho com **mínimo de movimentos**, sem levar em consideração o dano das células.
-
-**5. Busca A* com tempo discreto:** estados são `(linha, coluna, turno mod 4)`, incluindo a ação de esperar. O custo de uma transição é `c = 1 + 18·I(risco na chegada)`. O algoritmo minimiza `J(π) = Σ c` usando `f(n)=g(n)+h(n)` e heurística admissível Manhattan `h(n)=|r-r_alvo|+|c-c_alvo|`.
-
-**6. Lógica proposicional:** `PORTA_ABERTA = TEM_CHAVE ∧ ENIGMA_RESOLVIDO`. A conjunção só é verdadeira quando as duas condições são satisfeitas.
-
-**7. Aritmética modular:** o laser está ativo se `turno mod 4` é 0 ou 1; esperar ou escolher outra rota altera o instante de chegada.
-
-**8. Invariantes e conjuntos:** os caminhos para a credencial, o enigma e a saída são protegidos durante a colocação de perigos. A porta separa regiões conexas antes do desbloqueio. Geração usa `set` para operações de pertinência, união e áreas alcançáveis.
-
-**Exemplo de trade-off:** caminho curto com 3 ações e 1 espinho custa `3+18=21`. Um desvio de 5 ações sem risco custa `5`. A* seleciona o desvio; BFS seleciona o percurso de 3 passos.
-
-## Como o código foi organizado
-
-| Arquivo | Responsabilidade |
-|---|---|
-| [`jogo.py`](jogo.py) | Interface, desenho Pygame, teclado, modal, animação e HUD |
-| [`src/logica.py`](src/logica.py) | Matriz, geração DFS, BFS, A* temporal, regras, validações e pontuação |
-| [`tests/test_logica.py`](tests/test_logica.py) | Testes determinísticos, situações de risco e 500 mapas com sementes |
-| [`docs/GUIA_LINHA_A_LINHA.md`](docs/GUIA_LINHA_A_LINHA.md) | Explicação numerada de cada linha de código Python |
-| `docs/RELATORIO_PROJETO.docx` (no ZIP completo) | Documento descritivo acadêmico em Word |
-| `slides/APRESENTACAO_PROJETO.pptx` (no ZIP completo) | Apresentação PowerPoint para defesa de 10 a 15 minutos |
-
-O código Python contém comentários **linha a linha** nas instruções significativas. O guia complementar apresenta **cada linha numerada**, inclusive importações, decoradores, controles e chamadas gráficas.
-
-
-### Materiais finais (pacote ZIP)
-
-O **pacote completo do projeto**, distribuído junto à entrega acadêmica, contém o código-fonte, as imagens, o relatório editável (`.docx`), o relatório em PDF e os slides (`.pptx`). **Os arquivos binários de Word/PowerPoint/PDF não estão presentes nesta branch GitHub**; eles são fornecidos no ZIP de entrega para download. Os arquivos `.md` do repositório contêm as explicações matemáticas e a documentação linha por linha.
-
-## Testes e verificação
-
-```bash
-python -m unittest discover -s tests -v
-python -m compileall -q jogo.py src tests
+```text
+ProjetoDaniel/
+  jogo.py           # Interface visual em Pygame
+  logica.py         # Regras e algoritmos matematicos
+  testes.py         # Testes automáticos do jogo
+  requirements.txt  # Biblioteca necessária
+  README.md         # Explicação do projeto
+  .gitignore        # Ignora arquivos temporários do Python
 ```
 
-Casos incluem: 500 sementes de mapas, presença de rota para cada etapa, porta obrigatória, rota protegida sem obstáculos, **refúgio adjacente para cada perigo**, impacto/recuo de espinho e laser, laser desligado, perda da última vida, reprodutibilidade, limites da matriz, laser modular, BFS vs A*, espera temporal, validação de respostas e conclusão de 3 fases.
+Cada função possui uma explicação curta no início; os comentários de cada linha foram removidos para facilitar a leitura.
 
-> Observação de ambiente: a lógica pode ser testada sem Pygame; a biblioteca gráfica é exigida para abrir a janela. Validar também a execução com janela e teclado no computador de apresentação.
+## Como testar
 
-## Roteiro de apresentação
+```powershell
+python -m unittest testes -v
+```
 
-- **1–2 min:** problema real, objetivo e elementos do jogo.
-- **3–4 min:** matriz, grafo, DFS, BFS e A* temporal.
-- **2 min:** lógica proposicional, aritmética modular e custo de risco.
-- **2–4 min:** demonstração com espinhos/laser e comparação de rotas.
-- **1–2 min:** resultados dos testes, limites e melhorias.
+Os testes verificam os cálculos matemáticos, 500 mapas aleatórios, colisão com espinhos, laser ligado e desligado, retorno a casa segura e conclusão das três fases.
 
-## Limitações e extensões
+**Observação:** os testes automáticos nao substituem a verificação visual do jogo em um computador com Pygame instalado.
 
-O modelo usa pesos didáticos fixos, movimentação discreta, quatro direções e sensores perfeitos. Ele não modela geometria contínua, probabilidade de falha, múltiplas pessoas ou protocolos industriais reais. Futuras extensões: estimativa de probabilidade de risco, Dijkstra como baseline, multiagentes, comparação experimental com métricas e registros de telemetria.
+## Apresentação
 
-## Créditos
-
-Projeto acadêmico para o professor **Daniel Henrique Matos de Paiva**, disciplina de **Matemática Computacional Aplicada**. Baseado no jogo anterior “Labirinto dos Enigmas”, expandido para modelar avaliação de risco e caminhos alternativos.
+Na apresentação, explique o problema real, mostre a matriz do mapa, descreva DFS e BFS, compare as rotas do A* e demonstre o dano e o recuo seguro. O projeto é didático e aplica conhecimentos de matemática computacional e lógica de programação.
