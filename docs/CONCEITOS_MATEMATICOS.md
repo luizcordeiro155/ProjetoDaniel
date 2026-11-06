@@ -53,7 +53,19 @@ Antes de posicionar obstáculos, calculamos um caminho da entrada até K, de K a
 
 Verificamos programaticamente `BFS(início,K)` e `BFS(K,E)` com porta fechada e `BFS(E,saída)` com porta aberta, além de `BFS(início,saída)=∅` com a porta fechada. Essas propriedades evitam mapas impossíveis ou portas inúteis.
 
-## 9. Exemplo de otimização
+## 9. Modelagem do impacto e do recuo seguro
+
+Um contato com espinho (`^`) ou laser ativo (`~` no turno de chegada) decrementa a integridade e a pontuação: `vidas' = vidas - 1` e `pontos' = max(0, pontos - 20)`.
+
+Ao sofrer dano na célula `p=(r,c)`, definimos o conjunto `N_s(p) = {q ∈ V : ||q-p||₁ = 1, A[q] ∉ {^,~}}`, usando a transitabilidade da porta no estado atual. O recuo prefere a posição de origem `q_anterior ∈ N_s(p)`; caso não pertença ao conjunto, escolhe uma alternativa adjacente livre de perigo. Quando `N_s(p)` é vazio apenas em um **mapa manualmente modificado**, a defesa do código recorre à BFS para encontrar uma célula segura mais distante.
+
+Durante a geração do mapa, cada novo perigo é validado para preservar `∀p ∈ H, |N_s(p)| ≥ 1`, em que `H` é o conjunto de espinhos e lasers. Se o novo perigo eliminaria o último refúgio de um risco existente, o programa desfaz a alteração. A garantia vale para os mapas oficiais mesmo antes de a porta ser aberta.
+
+No Pygame, um evento `damage` inicia uma animação visual vermelha por **850 milissegundos**, alternando cores em intervalos de 105 ms. Nesse intervalo a entrada de movimento fica brevemente suspensa, protegendo contra múltiplos impactos causados pela repetição automática da mesma tecla. A animação ocorre em tempo real e não avança o relógio de turnos dos lasers.
+
+**Limitação do planejador:** BFS/A* calculam custos de atravessar perigos, mas não inserem o recuo na transição do estado planejado; o caminho seguro tende a evitar riscos, enquanto uma rota curta passando por perigo pode exigir novo planejamento após a colisão.
+
+## 10. Exemplo de otimização
 
 Considere dois caminhos hipotéticos:
 
@@ -62,10 +74,10 @@ Considere dois caminhos hipotéticos:
 
 A BFS prefere `P_curto`, pois minimiza apenas passos. A* prefere `P_seguro`, pois minimiza o custo ponderado. Em lasers, A* pode preferir **esperar** 1 turno e entrar em seguida quando o perigo estiver desativado.
 
-## 10. Sequências e recorrências
+## 11. Sequências e recorrências
 
 Os desafios utilizam crescimento geométrico (`2,4,8,16,32`), recorrência de Fibonacci (`1,1,2,3,5,8`) e quadrados perfeitos (`1²,2²,3²,4²,5²`). A validação utiliza comparação de strings numéricas sem executar expressões arbitrárias.
 
-## 11. Qualidade, testes e limites
+## 12. Qualidade, testes e limites
 
 São testados 500 labirintos pseudoaleatórios por semente, além de propriedades lógicas e cenários de roteamento. Isso verifica invariantes nas amostras testadas, mas **não é prova matemática** de correção universal. O modelo abstrai dinâmica industrial e não deve orientar movimentação real em ambientes perigosos.

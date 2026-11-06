@@ -48,14 +48,22 @@ Os botões do painel permitem selecionar BFS e A* com mouse.
 | `#` | Parede | Não transitável |
 | `.` | Piso | Transitável |
 | `R` | Entulho | Não transitável |
-| `^` | Espinhos | Transitável com perda de 1 vida e 20 pontos |
-| `~` | Laser | Dano quando `turno % 4 ∈ {0, 1}` |
+| `^` | Espinhos | Ao entrar, perde 1 vida e 20 pontos; pisca em vermelho e recua para casa vizinha segura |
+| `~` | Laser | Quando ativo (`turno % 4 ∈ {0, 1}`), aplica o mesmo dano e recuo; desligado pode ser atravessado |
 | `K` | Chave/credencial | +40 pontos |
 | `E` | Enigma | +80 pontos se correta |
 | `D` | Porta | Abre somente com chave **E** enigma resolvido |
 | `S` | Saída | +120 pontos e avança fase |
 
 Cada fase começa com 4 vidas. Dica de rota custa 5 pontos, no máximo uma vez por fase. O desafio possui 3 fases progressivas e pontuação máxima sem penalidades de **720 pontos** (240 por fase).
+
+### Nova mecânica: dano, recuo e piscada vermelha
+
+Ao **entrar em espinhos** ou entrar/esperar em um **laser ativo**, o personagem perde **1 vida e 20 pontos** e é deslocado **imediatamente para uma casa ortogonal vizinha segura**. O algoritmo prioriza a **casa anterior**, desde que não seja um perigo; se o jogador estava parado sobre um laser que ligou, escolhe outro refúgio lateral (prefere piso livre). O personagem pisca entre azul e **vermelho por 850 ms**, com um curto bloqueio dos movimentos durante a animação para impedir que uma tecla segurada provoque vários danos em sequência. O cronômetro visual não altera os turnos discretos do laser.
+
+Na **geração do labirinto**, cada espinho e laser deve possuir **ao menos um vizinho transitável sem perigos**, mesmo que os lasers estejam desligados. Se um novo obstáculo deixaria um perigo cercado, sua instalação é desfeita. Isso evita recuo para outra armadilha. Existe ainda uma busca BFS defensiva para localizar uma casa segura mais distante em mapas modificados manualmente que violem a garantia de vizinhança.
+
+**Regra matemática de adjacência segura:** dado o local do impacto `p=(r,c)`, o conjunto de refúgios `Nₛ(p)` reúne células transitáveis `q` tais que `|qᵣ-r| + |q꜀-c| = 1` e `A[q] ∉ {^,~}`. Nos mapas gerados, `Nₛ(p) ≠ ∅` para todo perigo. Esta regra é separada do cálculo de custo do A*: as rotas planejadas ainda são estimativas com penalidade de risco, não uma simulação de todos os recuos.
 
 ## Matemática Computacional aplicada
 
@@ -102,7 +110,7 @@ python -m unittest discover -s tests -v
 python -m compileall -q jogo.py src tests
 ```
 
-Casos incluem: 500 sementes de mapas, presença de rota para cada etapa, porta obrigatória, rota protegida sem obstáculos, reprodutibilidade, limites da matriz, laser modular, BFS vs A*, espera temporal, validação de respostas e conclusão de 3 fases.
+Casos incluem: 500 sementes de mapas, presença de rota para cada etapa, porta obrigatória, rota protegida sem obstáculos, **refúgio adjacente para cada perigo**, impacto/recuo de espinho e laser, laser desligado, perda da última vida, reprodutibilidade, limites da matriz, laser modular, BFS vs A*, espera temporal, validação de respostas e conclusão de 3 fases.
 
 > Observação de ambiente: a lógica pode ser testada sem Pygame; a biblioteca gráfica é exigida para abrir a janela. Validar também a execução com janela e teclado no computador de apresentação.
 
