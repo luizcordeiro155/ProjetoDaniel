@@ -61,6 +61,30 @@ def neighbors(grid: list[list[str]], pos: Position, door_open: bool) -> list[Pos
     return [candidate for delta in DIRECTIONS if walkable(grid, (candidate := add(pos, delta)), door_open)]  # Quatro movimentos ortogonais validos.
 
 
+def safe_neighbors(grid: list[list[str]], pos: Position, door_open: bool) -> list[Position]:  # Refugios vizinhos sem perigos permanentes ou temporarios.
+    return [candidate for candidate in neighbors(grid, pos, door_open) if grid[candidate[0]][candidate[1]] not in ("^", "~")]  # Espinho e laser nunca contam como casa segura, mesmo desligados.
+
+
+def safe_retreat(grid: list[list[str]], impact: Position, previous: Position, door_open: bool) -> Position:  # Escolhe uma casa segura depois da colisao.
+    options = safe_neighbors(grid, impact, door_open)  # Consulta as casas imediatamente ao lado do impacto.
+    if previous in options:  # Prioriza voltar exatamente uma casa, para onde o jogador estava.
+        return previous  # Recuo intuitivo e seguro quando a casa anterior nao e um perigo.
+    if options:  # O jogador pode ter esperado sobre um laser que acabou de ligar.
+        return min(options, key=lambda p: (grid[p[0]][p[1]] != ".", manhattan(p, START), p))  # Prefere piso vazio, depois desempate estavel.
+    queue = deque([impact])  # Defesa contra mapas adulterados que nao tenham refugio vizinho.
+    visited = {impact}  # Evita visitar repetidamente os mesmos vertices durante o resgate.
+    while queue:  # Busca o primeiro piso seguro alcancavel, caso a regra de geracao tenha sido violada.
+        current = queue.popleft()  # BFS encontra a alternativa mais proxima em movimentos.
+        for candidate in neighbors(grid, current, door_open):  # Percorre as quatro adjacencias transitaveis.
+            if candidate in visited:  # Um vertice ja visitado nao precisa ser reprocessado.
+                continue  # Evita ciclos infinitos no mapa editado manualmente.
+            if grid[candidate[0]][candidate[1]] not in ("^", "~"):  # Um local sem perigo encerra o resgate.
+                return candidate  # Somente neste caso defensivo o recuo pode superar uma casa.
+            visited.add(candidate)  # Registra uma celula perigosa para continuar a procura.
+            queue.append(candidate)  # Amplia a pesquisa ate encontrar um refugio acessivel.
+    return previous  # Situacao impossivel nos mapas oficiais: conserva a ultima coordenada.
+
+
 def bfs(grid: list[list[str]], origin: Position, goal: Position, door_open: bool = False) -> list[Position]:  # Menor caminho por passos.
     if not walkable(grid, origin, door_open) or not walkable(grid, goal, door_open):  # Valida os extremos.
         return []  # Caminho vazio indica objetivo indisponivel.
@@ -232,10 +256,19 @@ def generate_level(number: int, seed: int | None = None) -> Level:  # Construcao
     laser_n = min(5 + 2 * number, max(0, len(available) - rubble_n - spike_n))  # Laser e temporal.
     for pos in available[:rubble_n]:  # Converte alguns corredores em obstaculos solidos.
         grid[pos[0]][pos[1]] = "R"  # Representa caixa, entulho ou passagem obstruida.
-    for pos in available[rubble_n:rubble_n + spike_n]:  # Seleciona pontos com espinhos.
-        grid[pos[0]][pos[1]] = "^"  # Representa risco permanente de contato.
-    for pos in available[rubble_n + spike_n:rubble_n + spike_n + laser_n]:  # Seleciona perigos ciclicos.
-        grid[pos[0]][pos[1]] = "~"  # Representa equipamento com acionamento periodico.
+    for symbol, limit in (("^", spike_n), ("~", laser_n)):  # Distribui espinhos e lasers respeitando o limite de cada tipo.
+        placed = 0  # Conta apenas obstaculos validados matematicamente.
+        for pos in available[rubble_n:]:  # Examina corredores restantes na ordem aleatoria gerada.
+            if grid[pos[0]][pos[1]] != ".":  # Nao reutiliza casas com perigo ja instalado.
+                continue  # Evita sobreposicao de dois riscos na mesma celula.
+            grid[pos[0]][pos[1]] = symbol  # Instala o perigo de maneira provisoria.
+            affected = [pos] + [p for p in neighbors(grid, pos, False) if grid[p[0]][p[1]] in ("^", "~")]  # Inclui riscos vizinhos potencialmente isolados.
+            if not all(safe_neighbors(grid, danger, False) for danger in affected):  # Todo perigo deve permitir recuo lateral para casa segura.
+                grid[pos[0]][pos[1]] = "."  # Desfaz a instalacao que bloquearia todos os refugios.
+                continue  # Busca outro local sem comprometer a jogabilidade.
+            placed += 1  # Confirma um obstaculo com vizinhanca segura.
+            if placed >= limit:  # Respeita a quantidade maxima definida para a fase.
+                break  # Finaliza o posicionamento deste tipo de risco.
     result = Level(grid, number, START, EXIT, door, key, puzzle, protected=safe)  # Monta a fase tipada.
     if not bfs(grid, START, key, False) or not bfs(grid, key, puzzle, False):  # Confirma acesso pre-porta.
         raise AssertionError("Objetivos inacessiveis")  # Invariante de jogabilidade.
@@ -276,7 +309,8 @@ class Session:  # Armazena eventos, pontuacao, vidas e progresso.
         if delta not in DIRECTIONS + ((0, 0),):  # Entrada deve ser uma das cinco acoes.
             self.message = "Movimento invalido."  # Informa erro sem avancar tempo.
             return "invalid"  # Nao permite teletransporte diagonal.
-        nxt = add(self.level.player, delta)  # Calcula o candidato de deslocamento.
+        previous = self.level.player  # Guarda a casa de origem como primeira opcao de recuo seguro.
+        nxt = add(previous, delta)  # Calcula o candidato de deslocamento.
         if not walkable(self.level.grid, nxt, self.level.door_open):  # Aplica restricoes espaciais.
             self.message = "Caminho bloqueado ou porta ainda trancada."  # Explica impedimento.
             return "blocked"  # Movimento recusado; relogio da simulacao nao avanca.
@@ -284,14 +318,17 @@ class Session:  # Armazena eventos, pontuacao, vidas e progresso.
         self.steps += 1  # Registra acoes validas para metricas.
         self.level.player = nxt  # Atualiza a coordenada atual do personagem.
         tile = self.level.grid[nxt[0]][nxt[1]]  # Le o objeto presente na nova celula.
-        if hazard(self.level.grid, nxt, self.level.turns):  # Consulta risco no novo instante.
-            self.level.health -= 1  # Subtrai uma vida por contato danoso.
-            self.impacts += 1  # Acumula eventos de risco observados.
-            self.score = max(0, self.score - 20)  # Penalidade sem pontuacao negativa.
-            self.message = "RISCO! Espinhos ou laser ativo: -1 vida e -20 pontos."  # Feedback preciso.
-            if self.level.health <= 0:  # Detecta fim das vidas.
-                self.state = "lost"  # Abre tela de derrota.
-                return "lost"  # Para o restante da avaliacao da celula.
+        if hazard(self.level.grid, nxt, self.level.turns):  # Detecta espinhos ou laser ligado no turno da chegada.
+            self.level.health -= 1  # Remove exatamente uma vida por colisao.
+            self.impacts += 1  # Registra um unico impacto para esta acao.
+            self.score = max(0, self.score - 20)  # Desconta vinte pontos sem permitir placar negativo.
+            retreat = safe_retreat(self.level.grid, nxt, previous, self.level.door_open)  # Procura uma casa segura ao lado do perigo.
+            self.level.player = retreat  # Afasta imediatamente o personagem da celula que causou dano.
+            self.message = "RISCO! -1 vida, -20 pontos. Recuo para uma casa segura!"  # Explica o efeito na interface.
+            if self.level.health <= 0:  # Se as vidas acabaram, a colisao encerra a partida.
+                self.state = "lost"  # Mostra a tela de derrota mesmo apos o recuo.
+                return "lost"  # Informa que houve derrota por impacto.
+            return "damage"  # Notifica o Pygame para piscar o personagem em vermelho.
         elif delta == (0, 0):  # Trata a acao de esperar um turno parado.
             self.message = "Voce aguardou um turno. Fase do laser alterada."  # Explica tempo.
         if tile == "K" and not self.level.has_key:  # Encontrou a credencial.

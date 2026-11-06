@@ -24,6 +24,7 @@ MAP_Y = 126  # Deslocamento vertical do mapa dentro da janela.
 SIDE_X = 804  # Coordenada inicial do painel de indicadores.
 SIDE_W = 362  # Largura reservada para painel lateral.
 FPS = 60  # Frequencia visual, sem alterar o tempo discreto dos algoritmos.
+DAMAGE_FLASH_MS = 850  # Animacao de dano: 850 ms de piscadas vermelhas apos o recuo.
 BG = (9, 17, 30)  # Cor do fundo do simulador.
 PANEL = (15, 29, 48)  # Superficie dos paineis de informacao.
 PANEL_2 = (20, 39, 59)  # Tom secundario para caixas e botoes.
@@ -88,7 +89,7 @@ def draw_diamond(surface: pygame.Surface, x: int, y: int, radius: int, color: tu
     pygame.draw.polygon(surface, color, [(x, y - radius), (x + radius, y), (x, y + radius), (x - radius, y)])  # Poligono de quatro pontas.
 
 
-def draw_grid(surface: pygame.Surface, session: Session, path: list[tuple[int, int]], mode: str, now: int) -> None:  # Desenha a representacao do grafo no labirinto.
+def draw_grid(surface: pygame.Surface, session: Session, path: list[tuple[int, int]], mode: str, now: int, last_hit_at: int) -> None:  # Desenha o mapa e a animacao de impacto.
     level = session.level  # Recupera o mapa e o agente da fase atual.
     rounded(surface, (MAP_X - 12, MAP_Y - 12, MAP_W + 24, MAP_H + 24), PANEL, 16, BORDER)  # Moldura do labirinto.
     for row in range(ROWS):  # Percorre todas as linhas da matriz.
@@ -136,9 +137,14 @@ def draw_grid(surface: pygame.Surface, session: Session, path: list[tuple[int, i
             pygame.draw.circle(surface, shade, center, 4 if idx % 3 else 5)  # Marca etapas do caminho.
     cx, cy = tile_center(level.player)  # Posiciona jogador sobre sua celula atual.
     pulse = math.sin(now * 0.005) * 2  # Pequena animacao usando funcao seno.
-    pygame.draw.circle(surface, (12, 41, 60), (cx, cy), int(16 + pulse))  # Halo de destaque do agente.
-    pygame.draw.circle(surface, (91, 187, 255), (cx, cy), 12)  # Corpo circular do jogador.
-    pygame.draw.circle(surface, WHITE, (cx + 3, cy - 3), 4)  # Reflexo sobre o personagem.
+    elapsed = now - last_hit_at  # Calcula quantos milissegundos passaram desde o ultimo impacto.
+    flashing = 0 <= elapsed < DAMAGE_FLASH_MS  # Define a janela temporal da animacao de dano.
+    red_frame = flashing and (elapsed // 105) % 2 == 0  # Alterna vermelho/azul a cada 105 ms.
+    body = RED if red_frame else (91, 187, 255)  # Seleciona vermelho durante as piscadas.
+    aura = (107, 28, 45) if red_frame else (12, 41, 60)  # O halo acompanha a mudanca de cor.
+    pygame.draw.circle(surface, aura, (cx, cy), int(16 + pulse))  # Desenha halo pulsante, vermelho no impacto.
+    pygame.draw.circle(surface, body, (cx, cy), 12)  # Desenha o personagem na casa segura apos o recuo.
+    pygame.draw.circle(surface, WHITE, (cx + 3, cy - 3), 4)  # Mantem o brilho para facilitar a leitura visual.
 
 
 def draw_panel(surface: pygame.Surface, session: Session, path: list, route_cost: int, seconds: float, mouse: tuple, buttons: dict, show_debug: bool) -> None:  # Painel direito de matematica aplicada.
@@ -237,6 +243,7 @@ def main() -> int:  # Ponto de entrada da interface Pygame.
     route_cost = -1  # Custo ponderado da rota inicialmente desconhecido.
     show_debug = False  # Permite exibir formalizacao do A* opcionalmente.
     seconds = 0.0  # Cronometro apenas visual: NAO define o tempo dos lasers.
+    last_hit_at = -DAMAGE_FLASH_MS  # Inicialmente nao existe impacto e o jogador permanece azul.
     buttons = {"safe": pygame.Rect(SIDE_X + 20, 522, 318, 35), "short": pygame.Rect(SIDE_X + 20, 563, 318, 35), "primary": pygame.Rect(310, 485, 570, 55)}  # Regioes clicaveis.
     moves = {pygame.K_UP: (-1, 0), pygame.K_w: (-1, 0), pygame.K_DOWN: (1, 0), pygame.K_s: (1, 0), pygame.K_LEFT: (0, -1), pygame.K_a: (0, -1), pygame.K_RIGHT: (0, 1), pygame.K_d: (0, 1), pygame.K_SPACE: (0, 0)}  # Mapa de controles.
     running = True  # Variavel booleana de continuidade do programa.
@@ -263,6 +270,7 @@ def main() -> int:  # Ponto de entrada da interface Pygame.
                     elif session.state in ("lost", "victory"):  # Fim de jogo ou derrota.
                         session.reset()  # Reinicia pontuacao e labirintos.
                         seconds = 0.0  # Reinicia cronometro da partida.
+                        last_hit_at = -DAMAGE_FLASH_MS  # Cancela piscadas da partida anterior.
                     path = []  # Esconde rota de qualquer fase anterior.
                 continue  # Clique processado; passa ao proximo evento.
             if event.type != pygame.KEYDOWN:  # Eventos de movimento exigem tecla pressionada.
@@ -275,6 +283,7 @@ def main() -> int:  # Ponto de entrada da interface Pygame.
                 path = []  # Desliga trilha de navegacao antiga.
                 answer = ""  # Limpa campos de texto antigos.
                 seconds = 0.0  # Zera cronometro visual.
+                last_hit_at = -DAMAGE_FLASH_MS  # Garante que a nova partida comece sem efeito vermelho.
                 continue  # Terminou tratamento de reinicio.
             if session.state == "intro" and event.key == pygame.K_RETURN:  # ENTER na tela inicial.
                 session.begin()  # Inicia sessao em estado valido.
@@ -305,7 +314,11 @@ def main() -> int:  # Ponto de entrada da interface Pygame.
             elif event.key == pygame.K_m:  # M: exibe a funcao matematica A*.
                 show_debug = not show_debug  # Alterna modo tecnico para a apresentacao.
             elif event.key in moves:  # Setas, WASD ou espaco fazem acoes validas.
-                session.move(moves[event.key])  # Atualiza grafo, objetos, impactos e pontuacao.
+                if now - last_hit_at < DAMAGE_FLASH_MS:  # Durante a piscada, bloqueia tecla repetida contra o mesmo perigo.
+                    continue  # Evita perder varias vidas de uma vez segurando a seta.
+                action = session.move(moves[event.key])  # Recebe o evento logico da colisao ou do movimento.
+                if action in ("damage", "lost"):  # Impactos geram a mesma animacao vermelha.
+                    last_hit_at = now  # Inicia o cronometro da piscada sem alterar os turnos dos lasers.
                 path = []  # Um caminho consultado fica obsoleto apos cada acao.
         screen.fill(BG)  # Limpa quadro antes de redesenhar tudo.
         for i in range(0, SCREEN_W, 40):  # Mostra grid discreto decorativo no fundo.
@@ -313,7 +326,7 @@ def main() -> int:  # Ponto de entrada da interface Pygame.
         text(screen, "LABIRINTO", MAP_X, 31, 32, WHITE, True)  # Marca principal do jogo.
         text(screen, "DOS ENIGMAS", MAP_X + 205, 33, 29, TEAL, True)  # Segunda metade do titulo.
         text(screen, "ROTAS DE RISCO  |  MATEMÁTICA COMPUTACIONAL", MAP_X + 2, 83, 13, MUTED, True)  # Contexto academico.
-        draw_grid(screen, session, path, session.hint_mode, now)  # Renderiza a grade sobre o painel.
+        draw_grid(screen, session, path, session.hint_mode, now, last_hit_at)  # Renderiza o mapa e a piscada vermelha de impacto.
         draw_panel(screen, session, path, route_cost, seconds, mouse, buttons, show_debug)  # Mostra metricas e botoes.
         rounded(screen, (MAP_X - 12, 638, MAP_W + 24, 58), PANEL, 12, BORDER)  # Barra de mensagens contextual.
         wrap(screen, session.message, MAP_X + 4, 650, MAP_W - 20, 15, GOLD if "RISCO" in session.message else WHITE, 22)  # Informa evento ao jogador.
